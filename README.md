@@ -1,4 +1,5 @@
 <h1> Django Backend and ML model for -> Optimized Supply Chain Management  With Machine Learning </h1>
+<h2>Database: PostgreSQL</h2>
 <a href="https://github.com/chaitanya0802/SupplySync">Click me for Frontend (Android App)</a> 
 <h3>! Dataset not included due to large size issue</h3>
 </br>
