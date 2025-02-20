@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Model Prediction</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+        }
+        .input-container {
+            margin-top: 100px;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .button-container {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #f03275;
+            color: white;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #823cfa;
+        }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #823cfa;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>Hello, Make Predictions...</h2>
+    <div class="input-container">
+        <label for="date">Date:</label>
+        <input type="date" id="date" required>
+        <label for="product_id">Product ID:</label>
+        <input type="number" id="product_id" required>
+    </div>
+    <div class="button-container">
+        <button onclick="fetchPredictions()">Get Predictions</button>
+    </div>
+
+    <table id="predictionsTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Predicted Order Quantity</th>
+                <th>Estimated Warehouse Space (sqft)</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        function fetchPredictions() {
+            const dateInput = document.getElementById('date').value;
+            const productId = document.getElementById('product_id').value;
+
+            if (!dateInput || !productId) {
+                alert("Please enter both date and product ID.");
+                return;
+            }
+
+            const formattedDate = dateInput.split('-').reverse().join('-'); // Convert YYYY-MM-DD to DD-MM-YYYY
+            const apiUrl = `http://127.0.0.1:8000/predict?date=${formattedDate}&product_id=${productId}`;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector("#predictionsTable tbody");
+                    tableBody.innerHTML = ""; // Clear previous data
+
+                    Object.keys(data).forEach(date => {
+                        const row = `<tr>
+                            <td>${date}</td>
+                            <td>${data[date].predicted_order_quantity}</td>
+                            <td>${data[date].estimated_warehouse_space_sqft}</td>
+                        </tr>`;
+                        tableBody.innerHTML += row;
+                    });
+                })
+                .catch(error => {
+                    console.error("Error fetching data:", error);
+                    alert("Failed to fetch predictions. Check console for details.");
+                });
+        }
+    </script>
+</body>
+</html>

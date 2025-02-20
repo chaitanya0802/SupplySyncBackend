@@ -1,10 +1,12 @@
+from django.http import request
 from django.urls import path
 
 from supplysyncapi.views import UserSignUpView, UserTokenLoginView, SectionCreateAPIView, SectionUpdateAPIView, \
     SectionDeleteAPIView, RackCreateAPIView, RackUpdateAPIView, RackDeleteAPIView, ProductLotCreateAPIView, \
     UpdateProductLotAPIView, DeleteProductLotAPIView, GetWarehouseDetailsView, GetSectionDetailsView, \
     GetAllSectionIdsView, CheckSectionView, GetFilledSizeAndSectionId, GetRackDetailsView, CheckRackView, \
-    GetFilledSizeAndRackId, GetAllRacksIdsView, GetWarehouseSpacePrediction, GetProductQuantityPrediction
+    GetFilledSizeAndRackId, GetAllRacksIdsView, \
+    GetPredictions, index
 
 urlpatterns = [
     #auth
@@ -44,6 +46,10 @@ urlpatterns = [
     path('get-filledsize-rackid', GetFilledSizeAndRackId.as_view(), name='get-filledsize-rackid'),
 
     #ML prediction
-    path('predict-warehoues-space/<str:date>', GetWarehouseSpacePrediction.as_view(), name='get-warehouse-space-prediction'),
-    path('predict-product-quantity', GetProductQuantityPrediction.as_view(), name='get-product-quantity-prediction'),
+    path('predict', GetPredictions.as_view(), name='predict'),
+
+
+    path('', index, name='predict'),
+
+
 ]
