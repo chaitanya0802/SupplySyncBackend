@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 import joblib
-import numpy as np
 import pandas as pd
 from django.shortcuts import render
 from rest_framework import status
@@ -64,7 +63,7 @@ class SectionCreateAPIView(APIView):
             message = serializer_instance.save()
             return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
         else:
-            return Response(serializer_instance.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message":serializer_instance.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SectionUpdateAPIView(APIView):
@@ -334,9 +333,14 @@ class GetWarehouseDetailsView(APIView):
         try:
             warehouse = Warehouse.objects.get(user=request.user)
 
-            serializer = GetWarehouseDetailsSerializer(instance=warehouse)
+            data = {
+                "warehouse_name": warehouse.warehouse_name,
+                "percent_filled": (warehouse.size_filled / warehouse.size) * 100,
+                "total_sections": warehouse.total_sections,
+                "total_racks": warehouse.total_racks
+            }
 
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(data, status=status.HTTP_200_OK)
 
         except Warehouse.DoesNotExist:
             return Response({"error": "Warehouse not found."}, status=status.HTTP_404_NOT_FOUND)

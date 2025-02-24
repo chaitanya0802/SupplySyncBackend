@@ -92,7 +92,7 @@ class AddSectionSerializer(serializers.ModelSerializer):
 
             # Check if adding this section exceeds warehouse capacity
             if total_section_size + validated_data['size'] > warehouse.size:
-                raise serializers.ValidationError({"error": "Not enough space in the warehouse for this section."})
+                return "Not enough space in the warehouse for this section."
 
             # Create Section
             Section.objects.create(user=user, **validated_data)
@@ -136,7 +136,7 @@ class UpdateSectionSerializer(serializers.ModelSerializer):
 
         # Ensure warehouse size constraint is met
         if total_new_size > warehouse.size:
-            raise serializers.ValidationError({"error": "Updating this section exceeds warehouse capacity."})
+            return "Updating this section exceeds warehouse capacity."
 
         # Update section size
         instance.size = new_size
@@ -172,7 +172,7 @@ class AddRackSerializer(serializers.ModelSerializer):
 
             # Check if adding this rack exceeds section capacity
             if total_rack_size + validated_data['size'] > section.size:
-                raise serializers.ValidationError({"error": "Not enough space in the section for this rack."})
+                return "Not enough space in the section for this rack."
 
             # Create the Rack
             rack = Rack.objects.create(user=request.user, **validated_data)
@@ -323,7 +323,7 @@ class UpdateProductLotSerializer(serializers.ModelSerializer):
 
             # Check if the updated lot_space exceeds the rack capacity
             if rack.size_filled + lot_space_diff > rack.size:
-                raise serializers.ValidationError({"error": "Not enough space in the rack for this update."})
+                return "Not enough space in the rack for this update."
 
             # ---- Update ProductLot ----
             instance.product_name = validated_data.get('product_name', instance.product_name)
