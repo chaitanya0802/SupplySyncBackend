@@ -508,6 +508,11 @@ class GetFilledSizeAndRackId(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+#render html file
+def index(request):
+    return render(request, "supplysyncapi/index.html")
+
+
 #load model
 order_quantity_model = joblib.load("supplysyncapi/order_quantity_model_1.pkl")  # Model 1: Order Quantity Prediction
 warehouse_space_model = joblib.load("supplysyncapi/warehouse_space_model_2.pkl")  # Model 2: Warehouse Space Prediction
@@ -528,6 +533,7 @@ warehouse_space_features = [
 warehouse_location_mapping = {"Warehouse1": 0, "Warehouse2": 1, "Warehouse3": 2}
 region_mapping = {"North": 0, "South": 1, "East": 2, "West": 3}
 
+
 class GetPredictions(APIView):
     """
     API to predict Order Quantities and Warehouse Space for the next 7 days
@@ -535,22 +541,22 @@ class GetPredictions(APIView):
 
     def get(self, request):
         try:
-            date_str = request.query_params.get('date')  #DD-MM-YYYY
+            date_str = request.query_params.get('date')  # DD-MM-YYYY
             product_id = request.query_params.get('product_id')
 
             if not date_str or not product_id:
                 return Response({"error": "Missing date or product_id"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Convert date format (DD-MM-YYYY to Year, Month, Day)
+            # Convert date format
             try:
                 base_date = datetime.strptime(date_str, "%d-%m-%Y")
             except ValueError:
                 return Response({"error": "Invalid date format, expected DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
 
             product_id = int(product_id)
-            predictions = {}
+            predictions_list = []
 
-            #additional numeric features
+            # Additional numeric features
             stock_level = 100
             safety_stock_level = 20
             reorder_point = 30
@@ -560,11 +566,11 @@ class GetPredictions(APIView):
             competitor_price = 50
             competitor_promotion = 0
 
-            #convert categorical features to numeric using mappings
+            # Convert categorical features to numeric using mappings
             warehouse_location = warehouse_location_mapping["Warehouse3"]
             region = region_mapping["East"]
 
-            #predictions for the next 7 days
+            # Predictions for the next 7 days
             for i in range(7):
                 current_date = base_date + timedelta(days=i)
                 year, month, day = current_date.year, current_date.month, current_date.day
@@ -575,31 +581,28 @@ class GetPredictions(APIView):
                                                    promotion_flag, discount_rate, competitor_price, competitor_promotion]],
                                                  columns=order_quantity_features)
 
-                #Predict Order Quantity (Model 1)
+                # Predict Order Quantity (Model 1)
                 predicted_order_quantity = order_quantity_model.predict(input_data_model1)[0]
 
-                #Prepare input features for Model 2 (Warehouse Space Prediction)
+                # Prepare input features for Model 2 (Warehouse Space Prediction)
                 input_data_model2 = pd.DataFrame([[predicted_order_quantity, stock_level, safety_stock_level,
                                                    reorder_point, warehouse_location, region]],
                                                  columns=warehouse_space_features)
 
-                #Predict Warehouse Space (Model 2)
+                # Predict Warehouse Space (Model 2)
                 warehouse_space_needed = warehouse_space_model.predict(input_data_model2)[0]
 
-                formatted_date = current_date.strftime("%d-%m-%Y")
-                predictions[formatted_date] = {
+                predictions_list.append({
+                    "date": current_date.strftime("%d-%m-%Y"),
                     "predicted_order_quantity": round(float(predicted_order_quantity), 2),
                     "estimated_warehouse_space_sqft": round(float(warehouse_space_needed), 2)
-                }
+                })
 
-            return Response(predictions, status=status.HTTP_200_OK)
+            return Response({"predictions": predictions_list}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-#render html file
-def index(request):
-    return render(request, "supplysyncapi/index.html")
 
 

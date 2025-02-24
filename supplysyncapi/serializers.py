@@ -149,7 +149,6 @@ class UpdateSectionSerializer(serializers.ModelSerializer):
         return instance
 
 
-
 #Rack
 class AddRackSerializer(serializers.ModelSerializer):
     """
@@ -263,11 +262,11 @@ class AddProductLotSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
 
             if rack.user != request.user:
-                raise serializers.ValidationError({"error": "Unauthorized access to this rack."})
+                raise serializers.ValidationError({"message": "Unauthorized access to this rack."})
 
             # Check if rack has enough space
             if rack.size_filled + validated_data['lot_space'] > rack.size:
-                raise serializers.ValidationError({"error": "Rack size is not enough for the given lot."})
+                return f'message": "Rack size is not enough for the given lot.'
 
             # Create ProductLot instance
             productlot = ProductLot.objects.create(user=request.user, **validated_data)
@@ -291,7 +290,7 @@ class AddProductLotSerializer(serializers.ModelSerializer):
             return f'ProductLot Added Successfully for {productlot.user.username}'
 
         except Exception as e:
-            raise serializers.ValidationError({"error": str(e)})
+            raise serializers.ValidationError({"message": str(e)})
 
 
 class UpdateProductLotSerializer(serializers.ModelSerializer):
@@ -350,7 +349,7 @@ class UpdateProductLotSerializer(serializers.ModelSerializer):
             warehouse.size_filled += lot_space_diff
             warehouse.save()
 
-            return instance  # Return updated instance
+            return instance
 
         except Warehouse.DoesNotExist:
             raise serializers.ValidationError({"error": "No warehouse found for this user."})

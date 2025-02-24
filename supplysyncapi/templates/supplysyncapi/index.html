@@ -20,7 +20,7 @@
         input {
             padding: 10px;
             border: 1px solid #ccc;
-            border-radius: 5px;
+            border-radius: 25px;
             font-size: 16px;
             margin: 10px;
         }
@@ -33,7 +33,7 @@
             color: white;
             cursor: pointer;
             border: none;
-            border-radius: 5px;
+            border-radius: 25px;
             font-size: 16px;
         }
         button:hover {
@@ -97,7 +97,7 @@
             }
 
             const formattedDate = dateInput.split('-').reverse().join('-'); // Convert YYYY-MM-DD to DD-MM-YYYY
-            const apiUrl = `http://127.0.0.1:8000/predict?date=${formattedDate}&product_id=${productId}`;
+            const apiUrl = `http://127.0.0.1:8000/app/predict?date=${formattedDate}&product_id=${productId}`;
 
             fetch(apiUrl)
                 .then(response => response.json())
@@ -105,11 +105,16 @@
                     const tableBody = document.querySelector("#predictionsTable tbody");
                     tableBody.innerHTML = ""; // Clear previous data
 
-                    Object.keys(data).forEach(date => {
+                    if (!data.predictions || data.predictions.length === 0) {
+                        alert("No predictions available.");
+                        return;
+                    }
+
+                    data.predictions.forEach(item => {
                         const row = `<tr>
-                            <td>${date}</td>
-                            <td>${data[date].predicted_order_quantity}</td>
-                            <td>${data[date].estimated_warehouse_space_sqft}</td>
+                            <td>${item.date}</td>
+                            <td>${item.predicted_order_quantity}</td>
+                            <td>${item.estimated_warehouse_space_sqft}</td>
                         </tr>`;
                         tableBody.innerHTML += row;
                     });
