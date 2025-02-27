@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-
 import joblib
 import pandas as pd
 from django.shortcuts import render
@@ -12,7 +11,7 @@ from rest_framework.views import APIView
 from supplysyncapi.models import Section, Rack, ProductLot, Warehouse
 from supplysyncapi.serializers import UserTokenLoginSerializer, UserSignUpSerializer, AddSectionSerializer, \
     UpdateSectionSerializer, AddRackSerializer, UpdateRackSerializer, AddProductLotSerializer, \
-    UpdateProductLotSerializer, GetWarehouseDetailsSerializer, SectionIdsSerializer, SectionSerializer, \
+    UpdateProductLotSerializer, SectionIdsSerializer, SectionSerializer, \
     FilledSizeAndSectionIdSerializer, RackIdsSerializer, RackSerializer, FilledSizeAndRackIdSerializer
 
 

@@ -4,7 +4,7 @@ from django.db import models
 # Create your models here.
 
 class Warehouse(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile') #
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_profile')
     warehouse_name = models.CharField(max_length=50)
     size = models.FloatField()
     location = models.CharField(max_length=150)

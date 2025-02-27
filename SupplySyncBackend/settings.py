@@ -9,10 +9,11 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 import corsheaders.middleware
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +28,7 @@ SECRET_KEY = 'django-insecure-7+1l)8f0^dqu^jr_nb1(=&7$8c=)buj)5kaven%dfr#22wdoci
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', "192.168.1.22"]
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', "192.168.184.91"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
