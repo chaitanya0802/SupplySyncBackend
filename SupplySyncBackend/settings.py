@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-7+1l)8f0^dqu^jr_nb1(=&7$8c=)buj)5kaven%dfr#22wdoci
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', "192.168.184.91"]
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', "192.168.114.91"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -92,7 +92,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'USER': 'chaitanya0802',
-        'NAME': "supplysync_db2",
+        'NAME': "supplysync_db1",
         'PASSWORD': 'pass1234',
         'HOST': 'localhost',
         'PORT': '5432'

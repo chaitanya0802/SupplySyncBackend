@@ -12,24 +12,41 @@ from supplysyncapi.models import Section, Rack, ProductLot, Warehouse
 from supplysyncapi.serializers import UserTokenLoginSerializer, UserSignUpSerializer, AddSectionSerializer, \
     UpdateSectionSerializer, AddRackSerializer, UpdateRackSerializer, AddProductLotSerializer, \
     UpdateProductLotSerializer, SectionIdsSerializer, SectionSerializer, \
-    FilledSizeAndSectionIdSerializer, RackIdsSerializer, RackSerializer, FilledSizeAndRackIdSerializer
+    FilledSizeAndSectionIdSerializer, RackIdsSerializer, RackSerializer, FilledSizeAndRackIdSerializer, \
+    SubordinateUserSignUpSerializer
 
 
 # Create your views here.
 
 class UserSignUpView(APIView):
     """
-    to sign up User - StorewayAPI
+    to sign up User -
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer_instance = UserSignUpSerializer(data=request.data)
-        if serializer_instance.is_valid():
-            message = serializer_instance.save()  #call create
-            return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer_instance.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.data.get('usertype') == 'Manager':
+            serializer_instance = UserSignUpSerializer(data=request.data)
+            if serializer_instance.is_valid():
+                message = serializer_instance.save()  #call create
+                return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
+            else:
+                print(str(serializer_instance.errors))
+                return Response(serializer_instance.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        elif request.data.get('usertype') == 'Subordinate':
+            if Warehouse.objects.filter(warehouse_id=request.data.get('warehouseid')).exists():
+
+                serializer_instance = SubordinateUserSignUpSerializer(data=request.data)
+                if serializer_instance.is_valid():
+                    message = serializer_instance.save()  # call create
+                    return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
+                else:
+                    return Response(serializer_instance.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            else:
+                return Response({'message': "Warehouse Not Exists"}, status=status.HTTP_201_CREATED)
 
 
 class UserTokenLoginView(APIView):
@@ -53,15 +70,15 @@ class SectionCreateAPIView(APIView):
     """
     to add section for user warehouse
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
+
         serializer_instance = AddSectionSerializer(data=request.data, context={'request': request})
         if serializer_instance.is_valid():
             message = serializer_instance.save()
             return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
         else:
+
             return Response({"message":serializer_instance.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -104,7 +121,7 @@ class SectionDeleteAPIView(APIView):
                 return Response({'message': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
 
             # Fetch the associated Warehouse
-            warehouse = Warehouse.objects.get(user=request.user)
+            warehouse = Warehouse.objects.get(warehouse_id=request.data.get('warehouse_id'))
 
             # Remove all racks associated with the section
             racks = Rack.objects.filter(section=section)
@@ -138,10 +155,9 @@ class RackCreateAPIView(APIView):
     """
     to add rack for user warehouse
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
+
         serializer_instance = AddRackSerializer(data=request.data, context={'request': request})
         if serializer_instance.is_valid():
             message = serializer_instance.save()
@@ -208,7 +224,7 @@ class RackDeleteAPIView(APIView):
 
             # Fetch associated Section and Warehouse
             section = rack.section
-            warehouse = Warehouse.objects.get(user=request.user)
+            warehouse = Warehouse.objects.get(warehouse_id=request.data.get('warehouse_id'))
 
             # Reduce total racks in section and update is_filled
             section.total_racks = max(0, section.total_racks - 1)
@@ -216,7 +232,7 @@ class RackDeleteAPIView(APIView):
             section.save()
 
             # Update warehouse total_racks count
-            warehouse.total_racks = sum(section.total_racks for section in Section.objects.filter(user=request.user))
+            warehouse.total_racks = sum(section.total_racks for section in Section.objects.filter(warehouse_id=request.data.get('warehouse_id')))
             warehouse.save()
 
             # Delete the rack
@@ -231,13 +247,13 @@ class RackDeleteAPIView(APIView):
 #ProductLot CUD
 class ProductLotCreateAPIView(APIView):
     """
-    to add product lot for user warehouse
+    to add product lot for user warehouse only subordinate can add
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer_instance = AddProductLotSerializer(data=request.data, context={'request': request})
+
+        serializer_instance = AddProductLotSerializer(data=request.data,
+                                                      context={'request': request})
         if serializer_instance.is_valid():
             message = serializer_instance.save()
             return Response({'message': f'{message}'}, status=status.HTTP_201_CREATED)
@@ -254,7 +270,7 @@ class UpdateProductLotAPIView(APIView):
     def put(self, request, product_lot_id):
         try:
             # Get the ProductLot instance
-            product_lot = ProductLot.objects.get(id=product_lot_id, user=request.user)
+            product_lot = ProductLot.objects.get(id=product_lot_id, warehouse_id=request.data.get('warehouse_id'))
 
             # Serialize and validate data
             serializer = UpdateProductLotSerializer(product_lot, data=request.data, context={'request': request})
@@ -280,10 +296,10 @@ class DeleteProductLotAPIView(APIView):
     def delete(self, request, product_lot_id):
         try:
             # Get the ProductLot instance
-            product_lot = ProductLot.objects.get(id=product_lot_id, user=request.user)
+            product_lot = ProductLot.objects.get(id=product_lot_id, warehouse_id=request.data.get('warehouse_id'))
             rack = product_lot.rack
             section = rack.section
-            warehouse = Warehouse.objects.get(user=request.user)
+            warehouse = Warehouse.objects.get(warehouse_id=request.data.get('warehouse_id'))
 
             # Store values before deletion
             lot_space = product_lot.lot_space
@@ -323,14 +339,13 @@ class DeleteProductLotAPIView(APIView):
 
 class GetWarehouseDetailsView(APIView):
     """
-    to get warehouse details
+    to get warehouse details only for manager
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
+
         try:
-            warehouse = Warehouse.objects.get(user=request.user)
+            warehouse = Warehouse.objects.get(warehouse_id=request.query_params.get('warehouse_id'))
 
             data = {
                 "warehouse_name": warehouse.warehouse_name,
@@ -354,23 +369,22 @@ class GetSectionDetailsView(APIView):
     """
     to get section details
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
+            warehouse = Warehouse.objects.get(warehouse_id=request.query_params.get('warehouse_id') )
             #percent sections filled
-            total_sections = Section.objects.filter(user=request.user).count()
-            total_filled_sections = Section.objects.filter(user=request.user,
+            total_sections = Section.objects.filter(warehouse_id=warehouse).count()
+            total_filled_sections = Section.objects.filter(warehouse_id=warehouse,
                                                            is_filled=True).count()
             percent_section_filled = (total_filled_sections * 100) / total_sections
 
             #total empty sections
-            total_empty_sections = Section.objects.filter(user=request.user,
+            total_empty_sections = Section.objects.filter(warehouse_id=warehouse,
                                                           size_filled=0.0).count()
 
             #total filled sections
-            total_filled_sections = Section.objects.filter(user=request.user,
+            total_filled_sections = Section.objects.filter(warehouse_id=warehouse,
                                                            is_filled=True).count()
 
             data = {"percent_section_filled": percent_section_filled,
@@ -378,7 +392,6 @@ class GetSectionDetailsView(APIView):
                     "total_filled_sections": total_filled_sections
                     }
             return Response(data, status=status.HTTP_200_OK)
-
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -388,12 +401,10 @@ class GetAllSectionIdsView(APIView):
     """
     to get ids of sections
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
-            section_ids = Section.objects.filter(user=request.user)
+            section_ids = Section.objects.filter(warehouse_id=request.data.get('warehouse_id'))
             serializer = SectionIdsSerializer(instance=section_ids, many=True)
 
             return Response(data=serializer.data, status=status.HTTP_200_OK)
@@ -406,11 +417,10 @@ class CheckSectionView(APIView):
     """"
     to check details
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
-        section = Section.objects.get(user=request.user, section_id=id)
+        section = Section.objects.get(warehouse_id=request.data.get('warehouse_id'),
+                                      section_id=id)
         serializer = SectionSerializer(section)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -420,11 +430,9 @@ class GetFilledSizeAndSectionId(APIView):
     """
     to get filled size and section id
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        section = Section.objects.filter(user=request.user)
+        section = Section.objects.filter(warehouse_id=request.query_params.get('warehouse_id'))
         serializer = FilledSizeAndSectionIdSerializer(section, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -436,23 +444,21 @@ class GetRackDetailsView(APIView):
     """
     to get rack details
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
             #percent rack filled
-            total_rack = Rack.objects.filter(user=request.user).count()
-            total_filled_rack = Rack.objects.filter(user=request.user,
+            total_rack = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id')).count()
+            total_filled_rack = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'),
                                                     is_filled=True).count()
             percent_racks_filled = (total_filled_rack * 100) / total_rack
 
             #total empty racks
-            total_empty_racks = Rack.objects.filter(user=request.user,
+            total_empty_racks = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'),
                                                     size_filled=0.0).count()
 
             #total filled racks
-            total_filled_racks = Rack.objects.filter(user=request.user,
+            total_filled_racks = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'),
                                                      is_filled=True).count()
 
             data = {"percent_racks_filled": percent_racks_filled,
@@ -469,12 +475,10 @@ class GetAllRacksIdsView(APIView):
     """
     to get ids of racks
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
-            rack_ids = Rack.objects.filter(user=request.user)
+            rack_ids = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'))
             serializer = RackIdsSerializer(instance=rack_ids, many=True)
 
             return Response(data=serializer.data, status=status.HTTP_200_OK)
@@ -487,11 +491,9 @@ class CheckRackView(APIView):
     """"
     to check details
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
-        rack = Rack.objects.get(user=request.user, rack_id=id)
+        rack = Rack.objects.get(warehouse_id=request.data.get('warehouse_id'), rack_id=id)
         serializer = RackSerializer(rack)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -501,11 +503,9 @@ class GetFilledSizeAndRackId(APIView):
     """
     to get filled size and rack id
     """
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        rack = Rack.objects.filter(user=request.user)
+        rack = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'))
         serializer = FilledSizeAndRackIdSerializer(rack, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -516,7 +516,7 @@ def index(request):
     return render(request, "supplysyncapi/index.html")
 
 
-#load model
+# load model
 order_quantity_model = joblib.load("supplysyncapi/order_quantity_model_1.pkl")  # Model 1: Order Quantity Prediction
 warehouse_space_model = joblib.load("supplysyncapi/warehouse_space_model_2.pkl")  # Model 2: Warehouse Space Prediction
 

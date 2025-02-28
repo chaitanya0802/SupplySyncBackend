@@ -7,12 +7,13 @@ from supplysyncapi.models import Warehouse, Section, Rack, ProductLot
 
 class UserSignUpSerializer(serializers.Serializer):
     """
-    Serializer for user SignUp and create warehouse model
+    Serializer for user SignUp and create warehouse model - for manager
     """
     #validate the data type
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)
 
+    warehouseid = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     warehouse_name = serializers.CharField(max_length=50)
     location = serializers.CharField(max_length=150)
@@ -28,20 +29,43 @@ class UserSignUpSerializer(serializers.Serializer):
 
         return attrs
 
-    #create User Instance, Warehouse Instance and add User to Group
     def create(self, validated_data):
         user = User.objects.create(username=validated_data['username'])
         user.set_password(validated_data['password'])
         user.save()
 
-        #for User Warehouse Model
+        #Create Warehouse (by manager)
         Warehouse.objects.create(
             user=user,
             warehouse_name=validated_data['warehouse_name'],
+            warehouse_id=validated_data['warehouseid'],
             location=validated_data['location'],
             email=validated_data['email'],
             size=validated_data['size']
         )
+
+        return 'success'
+
+
+class SubordinateUserSignUpSerializer(serializers.Serializer):
+    """
+    for subordinate
+    """
+    # validate the data type
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+
+    # Validate if the username(phoneno) or email already exists
+    def validate(self, attrs):
+        if User.objects.filter(username=attrs['username']).exists():
+            raise serializers.ValidationError({"username": "Username already exists"})
+
+        return attrs
+
+    def create(self, validated_data):
+        user = User.objects.create(username=validated_data['username'])
+        user.set_password(validated_data['password'])
+        user.save()
 
         return 'success'
 
@@ -69,45 +93,46 @@ class UserTokenLoginSerializer(serializers.Serializer):
         return attrs
 
 
-
 #Section
 class AddSectionSerializer(serializers.ModelSerializer):
     """
-    Serializer to add a Section only if warehouse has enough space for it
+    Serializer to add a Section only if the warehouse has enough space for it.
     """
+    warehouse_id = serializers.CharField(max_length=150)
+    size = serializers.IntegerField()
+
     class Meta:
         model = Section
-        fields = ['size']
+        fields = ['warehouse_id', 'size']
 
     def create(self, validated_data):
         try:
-            request = self.context.get('request')
-            user = request.user
-
-            # Get the user's warehouse
-            warehouse = Warehouse.objects.get(user=user)
+            warehouse = Warehouse.objects.get(warehouse_id=validated_data['warehouse_id'])
 
             # Get total size of existing sections in the warehouse
-            total_section_size = Section.objects.filter(user=user).aggregate(total_size=Sum('size'))['total_size'] or 0
+            total_section_size = \
+            Section.objects.filter(warehouse_id=validated_data['warehouse_id']).aggregate(total_size=Sum('size'))[
+                'total_size'] or 0
 
             # Check if adding this section exceeds warehouse capacity
             if total_section_size + validated_data['size'] > warehouse.size:
                 return "Not enough space in the warehouse for this section."
 
             # Create Section
-            Section.objects.create(user=user, **validated_data)
+            Section.objects.create(warehouse_id=warehouse,
+                                   size=validated_data['size'])
 
             # Update Warehouse total_sections
-            warehouse.total_sections = Section.objects.filter(user=user).count()
+            warehouse.total_sections = Section.objects.filter(warehouse_id=validated_data['warehouse_id']).count()
             warehouse.save()
 
-            return f"Section added successfully for {user.username} in {warehouse.warehouse_name}"
+            return f"Section added successfully"
 
         except Warehouse.DoesNotExist:
-            raise serializers.ValidationError({"error": "No warehouse found for this user."})
+            raise serializers.ValidationError({"error": "No warehouse found"})
 
         except Exception as e:
-            raise serializers.ValidationError({"error": str(e)})
+            raise serializers.ValidationError(e)
 
 
 class UpdateSectionSerializer(serializers.ModelSerializer):
@@ -154,54 +179,63 @@ class AddRackSerializer(serializers.ModelSerializer):
     """
     Serializer to add a Rack only if the section has enough space for it.
     """
+    warehouse_id = serializers.CharField(max_length=150, write_only=True)
+    section = serializers.IntegerField()
+    size = serializers.IntegerField()
+
     class Meta:
         model = Rack
-        fields = ['section', 'size']
+        fields = ['warehouse_id', 'section', 'size']
 
     def create(self, validated_data):
         try:
-            request = self.context.get('request')
-            section = validated_data['section']
-
-            # Ensure user owns the section
-            if section.user != request.user:
-                raise serializers.ValidationError({"error": "Unauthorized access to this section."})
+            # Retrieve the Section instance
+            section = Section.objects.get(section_id=validated_data['section'])
 
             # Calculate total existing rack sizes in the section
-            total_rack_size = Rack.objects.filter(section=section).aggregate(total_size=Sum('size'))['total_size'] or 0
+            total_rack_size = Rack.objects.filter(section=section).aggregate(
+                total_size=Sum('size')
+            )['total_size'] or 0
 
             # Check if adding this rack exceeds section capacity
             if total_rack_size + validated_data['size'] > section.size:
-                return "Not enough space in the section for this rack."
+                raise serializers.ValidationError({"error": "Not enough space in the section for this rack."})
 
-            # Create the Rack
-            rack = Rack.objects.create(user=request.user, **validated_data)
+            # Retrieve the Warehouse instance
+            warehouse = Warehouse.objects.get(warehouse_id=validated_data['warehouse_id'])
+
+            # Create the Rack (Pass instances, not IDs)
+            Rack.objects.create(
+                warehouse_id=warehouse,
+                section=section,
+                size=validated_data['size'],
+            )
 
             # Update total racks in Section
             section.total_racks = Rack.objects.filter(section=section).count()
             section.save()
 
             # Update total racks in Warehouse
-            warehouse = Warehouse.objects.get(user=request.user)
-            warehouse.total_racks = Rack.objects.filter(section__user=request.user).count()
+            warehouse.total_racks = Rack.objects.filter(warehouse_id=warehouse).count()
             warehouse.save()
 
-            return f"Rack added successfully for {request.user.username} in {warehouse.warehouse_name}"
-
-        except Warehouse.DoesNotExist:
-            raise serializers.ValidationError({"error": "No warehouse found for this user."})
+            return f"Rack added successfully"
 
         except Section.DoesNotExist:
             raise serializers.ValidationError({"error": "Section does not exist."})
 
+        except Warehouse.DoesNotExist:
+            raise serializers.ValidationError({"error": "No warehouse found for this user."})
+
         except Exception as e:
-            raise serializers.ValidationError({"error": str(e)})
+            raise serializers.ValidationError(e)
 
 
 class UpdateRackSerializer(serializers.ModelSerializer):
     """
     Serializer to update a Rack while updating Section & Warehouse accordingly.
     """
+
     class Meta:
         model = Rack
         fields = ['section', 'size']
@@ -251,25 +285,40 @@ class AddProductLotSerializer(serializers.ModelSerializer):
     """
     Serializer to add a product lot and update Rack & Section details
     """
+    warehouse_id = serializers.CharField(max_length=150, write_only=True)
+    rack = serializers.IntegerField()
+    product_name = serializers.CharField(max_length=150)
+    supplier_name = serializers.CharField(max_length=150)
+    quantity = serializers.IntegerField()
+    category = serializers.CharField(max_length=150)
+    price = serializers.DecimalField(max_digits=100000 , decimal_places=2)
+    lot_space = serializers.FloatField()
+
     class Meta:
         model = ProductLot
-        fields = ['rack', 'product_name', 'supplier_name', 'quantity', 'category', 'price', 'lot_space']
+        fields = ['warehouse_id', 'rack', 'product_name', 'supplier_name', 'quantity',
+                  'category', 'price', 'lot_space']
 
     def create(self, validated_data):
         try:
-            rack = validated_data['rack']  # Get the rack instance
+            rack = Rack.objects.get(rack_id=validated_data['rack'])
             section = rack.section  # Get the section associated with the rack
-            request = self.context.get('request')
-
-            if rack.user != request.user:
-                raise serializers.ValidationError({"message": "Unauthorized access to this rack."})
 
             # Check if rack has enough space
             if rack.size_filled + validated_data['lot_space'] > rack.size:
                 return f'message": "Rack size is not enough for the given lot.'
 
-            # Create ProductLot instance
-            productlot = ProductLot.objects.create(user=request.user, **validated_data)
+            warehouse = Warehouse.objects.get(warehouse_id=validated_data['warehouse_id'])
+            #Create ProductLot instance
+            ProductLot.objects.create(warehouse_id=warehouse,
+                                      rack=rack,
+                                      product_name=validated_data['product_name'],
+                                      supplier_name=validated_data['supplier_name'],
+                                      quantity=validated_data['quantity'],
+                                      category=validated_data['category'],
+                                      price=validated_data['price'],
+                                      lot_space=validated_data['lot_space']
+                                      )
 
             # ---- Update Rack ----
             rack.total_products += validated_data.get('quantity', 0)
@@ -283,20 +332,22 @@ class AddProductLotSerializer(serializers.ModelSerializer):
             section.save()
 
             # ---- Update Warehouse ----
-            warehouse = Warehouse.objects.get(user=request.user)
+            warehouse = Warehouse.objects.get(warehouse_id=validated_data['warehouse_id'])
             warehouse.size_filled += validated_data.get("lot_space", 0)
             warehouse.save()
 
-            return f'ProductLot Added Successfully for {productlot.user.username}'
+            return f'ProductLot Added Successfully'
 
         except Exception as e:
-            raise serializers.ValidationError({"message": str(e)})
+            print(str(e))
+            raise serializers.ValidationError(e)
 
 
 class UpdateProductLotSerializer(serializers.ModelSerializer):
     """
     Serializer to update a ProductLot and adjust Rack & Section details accordingly
     """
+
     class Meta:
         model = ProductLot
         fields = ['product_name', 'supplier_name', 'quantity', 'category', 'price', 'lot_space']
@@ -383,6 +434,7 @@ class SectionIdsSerializer(serializers.ModelSerializer):
     """
     to get section ids
     """
+
     class Meta:
         model = Section
         fields = ['section_id']
@@ -392,6 +444,7 @@ class SectionSerializer(serializers.ModelSerializer):
     """
     to get section details
     """
+
     class Meta:
         model = Section
         fields = ['section_id', 'size', 'total_racks', 'is_filled', 'size_filled']
@@ -413,6 +466,7 @@ class RackIdsSerializer(serializers.ModelSerializer):
     """
     to get rack ids
     """
+
     class Meta:
         model = Rack
         fields = ['rack_id']
@@ -422,6 +476,7 @@ class RackSerializer(serializers.ModelSerializer):
     """
     to get rack details
     """
+
     class Meta:
         model = Rack
         fields = ['rack_id', 'section', 'size', 'total_products', 'is_filled', 'size_filled']

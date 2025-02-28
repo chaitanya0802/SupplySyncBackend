@@ -5,7 +5,7 @@ from supplysyncapi.views import UserSignUpView, UserTokenLoginView, SectionCreat
     UpdateProductLotAPIView, DeleteProductLotAPIView, GetWarehouseDetailsView, GetSectionDetailsView, \
     GetAllSectionIdsView, CheckSectionView, GetFilledSizeAndSectionId, GetRackDetailsView, CheckRackView, \
     GetFilledSizeAndRackId, GetAllRacksIdsView, \
-    GetPredictions, index
+    index, GetPredictions
 
 urlpatterns = [
     #auth
