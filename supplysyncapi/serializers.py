@@ -490,3 +490,9 @@ class FilledSizeAndRackIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rack
         fields = ['rack_id', 'size_filled']
+
+
+class ProductLotIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLot
+        fields = ['product_lot_id']

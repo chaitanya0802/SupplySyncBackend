@@ -13,7 +13,7 @@ from supplysyncapi.serializers import UserTokenLoginSerializer, UserSignUpSerial
     UpdateSectionSerializer, AddRackSerializer, UpdateRackSerializer, AddProductLotSerializer, \
     UpdateProductLotSerializer, SectionIdsSerializer, SectionSerializer, \
     FilledSizeAndSectionIdSerializer, RackIdsSerializer, RackSerializer, FilledSizeAndRackIdSerializer, \
-    SubordinateUserSignUpSerializer
+    SubordinateUserSignUpSerializer, ProductLotIdSerializer
 
 
 # Create your views here.
@@ -449,6 +449,7 @@ class GetRackDetailsView(APIView):
         try:
             #percent rack filled
             total_rack = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id')).count()
+            print("total_rack")
             total_filled_rack = Rack.objects.filter(warehouse_id=request.data.get('warehouse_id'),
                                                     is_filled=True).count()
             percent_racks_filled = (total_filled_rack * 100) / total_rack
@@ -509,6 +510,106 @@ class GetFilledSizeAndRackId(APIView):
         serializer = FilledSizeAndRackIdSerializer(rack, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ----------------------delete
+
+class SectionListView(APIView):
+
+    def get(self, request):
+        warehouse_id = request.query_params.get('warehouse_id')
+        if not warehouse_id:
+            return Response({"error": "warehouse_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        sections = Section.objects.filter(warehouse_id=warehouse_id)
+        serializer = SectionIdsSerializer(sections, many=True)
+        return Response([s['section_id'] for s in serializer.data], status=status.HTTP_200_OK)
+
+
+class SectionDeleteView(APIView):
+    def delete(self, request, section_id):
+        try:
+            section = Section.objects.get(pk=section_id)
+            warehouse = section.warehouse_id
+
+            # Delete section
+            section_size = section.size
+            racks_in_section = section.total_racks
+            section.delete()
+
+            # Update warehouse
+            warehouse.total_sections = max(0, (warehouse.total_sections or 0) - 1)
+            warehouse.total_racks = max(0, (warehouse.total_racks or 0) - racks_in_section)
+            warehouse.size_filled = max(0, (warehouse.size_filled or 0) - section_size)
+            warehouse.save()
+
+            return Response({"message": "Section deleted and warehouse updated"}, status=status.HTTP_204_NO_CONTENT)
+
+        except Section.DoesNotExist:
+            return Response({"error": "Section not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RackListView(APIView):
+    def get(self, request):
+        warehouse_id = request.query_params.get('warehouse_id')
+        if not warehouse_id:
+            return Response({"error": "warehouse_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        racks = Rack.objects.filter(warehouse_id=warehouse_id)
+        serializer = RackIdsSerializer(racks, many=True)
+        return Response([r['rack_id'] for r in serializer.data], status=status.HTTP_200_OK)
+
+
+class RackDeleteView(APIView):
+    def delete(self, request, rack_id):
+        try:
+            rack = Rack.objects.get(pk=rack_id)
+            warehouse = rack.warehouse_id
+
+            # Delete rack
+            rack_size = rack.size
+            rack.delete()
+
+            # Update warehouse
+            warehouse.total_racks = max(0, (warehouse.total_racks or 0) - 1)
+            warehouse.size_filled = max(0, (warehouse.size_filled or 0) - rack_size)
+            warehouse.save()
+
+            return Response({"message": "Rack deleted and warehouse updated"}, status=status.HTTP_204_NO_CONTENT)
+
+        except Rack.DoesNotExist:
+            return Response({"error": "Rack not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ProductLotListView(APIView):
+    def get(self, request):
+        warehouse_id = request.query_params.get('warehouse_id')
+        if not warehouse_id:
+            return Response({"error": "warehouse_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        lots = ProductLot.objects.filter(warehouse_id=warehouse_id)
+        serializer = ProductLotIdSerializer(lots, many=True)
+        return Response([l['product_lot_id'] for l in serializer.data], status=status.HTTP_200_OK)
+
+
+class ProductLotDeleteView(APIView):
+    def delete(self, request, product_lot_id):
+        try:
+            lot = ProductLot.objects.get(pk=product_lot_id)
+            warehouse = lot.warehouse_id
+
+            # Delete lot
+            lot_space = lot.lot_space
+            lot.delete()
+
+            # Update warehouse
+            warehouse.size_filled = max(0, (warehouse.size_filled or 0) - lot_space)
+            warehouse.save()
+
+            return Response({"message": "Product lot deleted and warehouse updated"}, status=status.HTTP_204_NO_CONTENT)
+
+        except ProductLot.DoesNotExist:
+            return Response({"error": "Product lot not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 #render html file

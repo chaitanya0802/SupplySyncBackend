@@ -5,31 +5,28 @@ from supplysyncapi.views import UserSignUpView, UserTokenLoginView, SectionCreat
     UpdateProductLotAPIView, DeleteProductLotAPIView, GetWarehouseDetailsView, GetSectionDetailsView, \
     GetAllSectionIdsView, CheckSectionView, GetFilledSizeAndSectionId, GetRackDetailsView, CheckRackView, \
     GetFilledSizeAndRackId, GetAllRacksIdsView, \
-    index, GetPredictions
+    index, GetPredictions, SectionListView, SectionDeleteView, RackListView, RackDeleteView, ProductLotListView, \
+    ProductLotDeleteView
 
 urlpatterns = [
     #auth
     path('signup', UserSignUpView.as_view(), name='signup'),
     path('login', UserTokenLoginView.as_view(), name='login'),
 
-
     #Section CUD
     path('add-section', SectionCreateAPIView.as_view(), name='add-warehouse-section'),
     path('update-section/<str:section_id>', SectionUpdateAPIView.as_view(), name='update-warehouse-section'),
     path('delete-section/<str:section_id>', SectionDeleteAPIView.as_view(), name='delete-warehouse-section'),
-
 
     #Rack CUD
     path('add-rack', RackCreateAPIView.as_view(), name='add-warehouse-rack'),
     path('update-rack/<str:rack_id>', RackUpdateAPIView.as_view(), name='update-warehouse-rack'),
     path('delete-rack/<str:rack_id>', RackDeleteAPIView.as_view(), name='delete-warehouse-rack'),
 
-
     #ProductLot CUD
     path('add-productlot', ProductLotCreateAPIView.as_view(), name='productlot-warehouse-rack'),
     path('update-productlot/<str:product_lot_id>', UpdateProductLotAPIView.as_view(), name='productlot-warehouse-rack'),
     path('delete-productlot/<str:product_lot_id>', DeleteProductLotAPIView.as_view(), name='productlot-warehouse-rack'),
-
 
     # Home Page Dashboard
     path('get-warehouse-details', GetWarehouseDetailsView.as_view(), name='get-warehouse-details'),
@@ -44,9 +41,19 @@ urlpatterns = [
     path('get-rack/<str:id>', CheckRackView.as_view(), name='get-rack'),
     path('get-filledsize-rackid', GetFilledSizeAndRackId.as_view(), name='get-filledsize-rackid'),
 
+    # ---------------------delete
+    path('sections', SectionListView.as_view(), name='section-list'),  # GET with warehouse_id
+    path('sections/<int:section_id>', SectionDeleteView.as_view(), name='section-delete'),  # DELETE
+
+    path('racks', RackListView.as_view(), name='rack-list'),       # GET with warehouse_id
+    path('racks/<int:rack_id>', RackDeleteView.as_view(), name='rack-delete'),  # DELETE
+
+    path('productlots', ProductLotListView.as_view(), name='productlot-list'),       # GET with warehouse_id
+    path('productlots/<int:product_lot_id>', ProductLotDeleteView.as_view(), name='productlot-delete'),
+
+
     #ML prediction
     path('predict/', GetPredictions.as_view(), name='predict'),
-
 
     path('', index, name='predict'),
 
